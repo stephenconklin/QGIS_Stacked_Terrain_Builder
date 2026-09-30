@@ -40,7 +40,7 @@ Every image below shows the same 16 km square around Bright Angel Canyon, with t
 All four use the Spectral ramp.
 
 | Offset slabs | Paper layers |
-|---|---|
+|:---:|:---:|
 | ![Offset slabs style: tall dark walls under every slab](docs/images/style_slabs.png) | ![Paper layers style: thin sheets with pale edges and soft shadows](docs/images/ramp_spectral.png) |
 | **Cut card** | **Cut card, nadir view** |
 | ![Cut card style: dark edges and deep shadows](docs/images/style_card.png) | ![Cut card in a nadir view: slabs in place, depth from shadows](docs/images/style_nadir_card.png) |
@@ -52,7 +52,7 @@ Offset slabs has the largest automatic lift, so the whole stack moves further no
 All nine ramps in the dialog, on the Paper layers style. Only `stack_ramp` differs between them, so any of them can be switched on an existing layer without a rerun.
 
 | Magma | Inferno | Plasma |
-|---|---|---|
+|:---:|:---:|:---:|
 | ![Magma ramp](docs/images/ramp_magma.png) | ![Inferno ramp](docs/images/ramp_inferno.png) | ![Plasma ramp](docs/images/ramp_plasma.png) |
 | **Viridis** | **Spectral** | **Teal-Orange** |
 | ![Viridis ramp](docs/images/ramp_viridis.png) | ![Spectral ramp](docs/images/ramp_spectral.png) | ![Teal-Orange ramp](docs/images/ramp_teal_orange.png) |
