@@ -2,7 +2,7 @@
 
 ![The Grand Canyon's North Rim as stacked terrain: Paper layers style, Grand Canyon Light ramp, shaded faces and a paper texture](docs/images/hero.png)
 
-*The Grand Canyon around Bright Angel Canyon and the North Rim, from a USGS 3DEP DEM: Paper layers style, Grand Canyon Light ramp, shaded faces and a paper texture.*
+*The Grand Canyon around Bright Angel Canyon and the North Rim, from the Copernicus GLO-30 DEM: Paper layers style, Grand Canyon Light ramp, shaded faces and a paper texture.*
 
 QGIS Stacked Terrain Builder is a QGIS Processing tool that turns any DEM into stacked terrain art. Each elevation level becomes a solid slab laid over the ones below it, so the landscape reads like layers of cut paper. The stack can be drawn two ways:
 
@@ -33,7 +33,7 @@ Run the tool with just a DEM and an output file ending in `.gpkg`. Everything el
 
 ## Gallery
 
-Every image below shows the same 16 km square around Bright Angel Canyon, with the North Rim at the top and the Colorado River along the bottom. Each comes from a run on the full Grand Canyon DEM (USGS 3DEP) with automatic settings, *Shade slab faces* on and a paper texture at the default opacity.
+Every image below shows the same 16 km square around Bright Angel Canyon, with the North Rim at the top and the Colorado River along the bottom. Each comes from a run on the full Grand Canyon DEM (Copernicus GLO-30) with automatic settings, *Shade slab faces* on and a paper texture at the default opacity.
 
 ### Styles
 
