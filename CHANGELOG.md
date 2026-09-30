@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- README: the introduction describes both views (oblique and nadir) instead of only the offset look, and *How it works* no longer assumes an oblique view. New Gallery section showing every style, a nadir view and all nine color ramps, each with shaded faces and a paper texture; the before/after pair is re-rendered (the after image is now Paper layers with Viridis, shading and paper).
+
 ## 3.3.0 — 2026-09-30
 
 - The project is now called **QGIS Stacked Terrain Builder** (folder and GitHub repository `QGIS_Stacked_Terrain_Builder`). The tool's name in QGIS and its algorithm id are unchanged, so saved models keep working.

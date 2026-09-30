@@ -4,11 +4,16 @@
 
 *The Grand Canyon around Bright Angel Canyon and the North Rim, from a USGS 3DEP DEM: Paper layers style, Grand Canyon Light ramp, shaded faces and a paper texture.*
 
-QGIS Stacked Terrain Builder is a QGIS Processing tool that turns any DEM into John Nelson–style "offset stacked" terrain art. Each elevation level becomes a solid slab that is lifted north in proportion to its height, with a darker wall below it and a lit highlight on its north-west edge, so the landscape reads like layers of cut paper.
+QGIS Stacked Terrain Builder is a QGIS Processing tool that turns any DEM into stacked terrain art. Each elevation level becomes a solid slab laid over the ones below it, so the landscape reads like layers of cut paper. The stack can be drawn two ways:
 
-The look is adapted from John Nelson's [Make this AI-inspired topo landscape please](https://adventuresinmapping.com/2023/12/19/make-this-ai-inspired-topo-landscape-please/) (ArcGIS Pro), which in turn draws on Tanaka and Pauliny illuminated contours. This project re-implements the idea natively in QGIS.
+- **Oblique** (the default) is the "offset stacked" look: each slab is lifted away from the viewer in proportion to its height, with a darker wall showing beneath it.
+- **Nadir** looks straight down: every slab stays on its true ground position, so the map can still be read, measured or overlaid with other data, and the depth comes from shadows and lit edges.
 
-| Before: a standard hillshade | After: Stacked Terrain (Offset slabs, Magma) |
+You choose the direction of the view and of the light, a style and a color ramp, and most of the look can be adjusted after the run without rerunning.
+
+The oblique look is adapted from John Nelson's [Make this AI-inspired topo landscape please](https://adventuresinmapping.com/2023/12/19/make-this-ai-inspired-topo-landscape-please/) (ArcGIS Pro), which in turn draws on Tanaka and Pauliny illuminated contours; the nadir view is closest to those. This project re-implements the idea natively in QGIS.
+
+| Before: a standard hillshade | After: Stacked Terrain (Paper layers, Viridis, shaded faces, paper texture) |
 |---|---|
 | ![Hillshade of the sample DEM](docs/images/before_hillshade.png) | ![The same area as stacked terrain slabs](docs/images/after_stacked.png) |
 
@@ -25,6 +30,36 @@ To update an installed copy, right-click the tool, choose **Edit Script…**, pa
 ## Quick start
 
 Run the tool with just a DEM and an output file ending in `.gpkg`. Everything else is auto-set from the DEM. Saving to a GeoPackage matters: it lets the tool embed the style in the file, so the layer opens styled in any project. A temporary output works too, but the style then lives only in the current project.
+
+## Gallery
+
+Every image below shows the same 16 km square around Bright Angel Canyon, with the North Rim at the top and the Colorado River along the bottom. Each comes from a run on the full Grand Canyon DEM (USGS 3DEP) with automatic settings, *Shade slab faces* on and a paper texture at the default opacity.
+
+### Styles
+
+All four use the Spectral ramp.
+
+| Offset slabs | Paper layers |
+|---|---|
+| ![Offset slabs style: tall dark walls under every slab](docs/images/style_slabs.png) | ![Paper layers style: thin sheets with pale edges and soft shadows](docs/images/ramp_spectral.png) |
+| **Cut card** | **Cut card, nadir view** |
+| ![Cut card style: dark edges and deep shadows](docs/images/style_card.png) | ![Cut card in a nadir view: slabs in place, depth from shadows](docs/images/style_nadir_card.png) |
+
+Offset slabs has the largest automatic lift, so the whole stack moves further north; the blue-green patches along its bottom edge are the South Rim's plateau, lifted into view from outside the frame. The nadir view keeps every slab on its ground position.
+
+### Color ramps
+
+All nine ramps in the dialog, on the Paper layers style. Only `stack_ramp` differs between them, so any of them can be switched on an existing layer without a rerun.
+
+| Magma | Inferno | Plasma |
+|---|---|---|
+| ![Magma ramp](docs/images/ramp_magma.png) | ![Inferno ramp](docs/images/ramp_inferno.png) | ![Plasma ramp](docs/images/ramp_plasma.png) |
+| **Viridis** | **Spectral** | **Teal-Orange** |
+| ![Viridis ramp](docs/images/ramp_viridis.png) | ![Spectral ramp](docs/images/ramp_spectral.png) | ![Teal-Orange ramp](docs/images/ramp_teal_orange.png) |
+| **Lime-Orange** | **Grand Canyon** | **Grand Canyon Light** |
+| ![Lime-Orange ramp](docs/images/ramp_lime_orange.png) | ![Grand Canyon ramp](docs/images/ramp_grand_canyon.png) | ![Grand Canyon Light ramp](docs/images/ramp_grand_canyon_light.png) |
+
+The first seven stretch from the lowest to the highest slab of the whole DEM, so this part of the canyon uses only part of each ramp. The two Grand Canyon ramps are pinned to real elevations (see [Grand Canyon ramps](#grand-canyon-ramps)), so their colors mark life zones: red rock at the river, then desert scrub and woodland, then forest on the rim.
 
 ## Parameters
 
@@ -145,11 +180,7 @@ The symbology is driven entirely by layer variables, so most changes need no rer
 | `stack_base`, `stack_top` | Elevations mapped to the start and end of the ramp (except the Grand Canyon ramps, which use fixed elevations). Narrow them to push more color contrast into part of the relief. |
 | `stack_interval` | The contour interval used. Only change this if you also rerun, since the geometry was built with it. |
 
-Every image below is the same layer. Only `stack_ramp` (and, in the last one, a paper texture) was changed:
-
-| `Magma` | `Viridis` | `Spectral` + paper texture |
-|---|---|---|
-| ![Slabs colored with the Magma ramp](docs/images/ramp_magma.png) | ![Slabs colored with the Viridis ramp](docs/images/ramp_viridis.png) | ![Slabs colored with the Spectral ramp under a paper texture](docs/images/ramp_spectral_paper.png) |
+The ramp images in the [Gallery](#color-ramps) are all one layer with only `stack_ramp` changed.
 
 ### Styles
 
@@ -210,9 +241,9 @@ layer.triggerRepaint()
 
 The DEM is first averaged to a coarser grid, which is what produces the soft, sinuous outlines instead of lidar-level noise. With an AOI it is clipped to the AOI's outline padded by three cells, then GDAL builds contour bands at the chosen interval. Each slab outline is smoothed and then simplified to a tenth of the cell size: every smoothing pass doubles the number of points, mostly in nearly straight runs, and dropping those makes the layer about ten times lighter and several times faster to draw without visibly changing it. The finished slabs are cut to the exact AOI outline after that, so the edge is as clean as the AOI polygon itself.
 
-Bands alone don't stack well: each band has holes where the next level sits, and near the map edge a band may not reach the boundary at all, which leaves gaps once slabs are offset. So the tool builds true nested slabs instead. Working from the top down, each slab is the union of its band with every band above it, meaning "all ground at or above this elevation". The lowest slab therefore covers the full extent, and every slab reaches the map edge wherever the ground there is high enough, which produces a stepped cross-section along the south edge rather than a gap.
+Bands alone don't stack well: each band has holes where the next level sits, and near the map edge a band may not reach the boundary at all, which leaves gaps once slabs are offset. So the tool builds true nested slabs instead. Working from the top down, each slab is the union of its band with every band above it, meaning "all ground at or above this elevation". The lowest slab therefore covers the full extent, and every slab reaches the map edge wherever the ground there is high enough, which, in an oblique view, produces a stepped cross-section along the edge facing the viewer (the south edge by default) rather than a gap.
 
-The styling uses a single geometry generator that translates each slab away from the viewer (toward the azimuth `stack_view_az` + 180°) by `(ELEV_MIN − stack_base) × stack_exag`. Inside it are four fills, drawn bottom to top: the highlight (a lighter tint offset slightly toward the light), the wall (a darker tint offset toward the viewer by one slab step, `stack_interval × stack_exag`; with graded walls, `stack_wall_steps` copies spaced evenly over that step and lightening toward the base), the shadow (a blurred dark copy offset slightly away from the light, whose opacity is `stack_shadow`), and the face (the ramp color, with an optional edge line). Features are drawn in ascending `ELEV_MIN` order so higher slabs land on top, and each slab's shadow falls on the slabs below it.
+The styling uses a single geometry generator that translates each slab away from the viewer (toward the azimuth `stack_view_az` + 180°) by `(ELEV_MIN − stack_base) × stack_exag`, which is zero in a nadir view. Inside it are four fills, drawn bottom to top: the highlight (a lighter tint offset slightly toward the light), the wall (a darker tint offset toward the viewer by one slab step, `stack_interval × stack_exag`, so none in a nadir view; with graded walls, `stack_wall_steps` copies spaced evenly over that step and lightening toward the base), the shadow (a blurred dark copy offset slightly away from the light, whose opacity is `stack_shadow`), and the face (the ramp color, with an optional edge line). Features are drawn in ascending `ELEV_MIN` order so higher slabs land on top, and each slab's shadow falls on the slabs below it.
 
 Shaded faces can't be an ordinary hillshade, because each slab is drawn shifted by its own lift and a hillshade would stay put. Instead the tool averages the DEM to three generalization cells (for broad, soft shading), hillshades it from the light azimuth, and then, starting from the lowest slab, pastes the shading under each slab at that slab's lifted position, the same way the renderer stacks the slabs. The result is blended with Multiply, so white is neutral and only the shaded slopes darken the colors.
 
