@@ -1,7 +1,9 @@
 # Changelog
 
-## Unreleased
+## 3.3.1 — 2026-10-01
 
+- **Fixed: the paper texture covered the whole bounding rectangle**, so with an AOI a rectangular sheet of paper showed around the map. It now only shows where the stack is drawn: every slab at its lift, its walls, and a one-cell margin for edge lines and shadows. The paper raster carries this as an alpha band with a soft edge; the image's own values are unchanged, so the texture looks the same on the stack. The ArcGIS Pro copy fades to white outside the stack instead, which is neutral under Multiply.
+- A paper image that can't be read (a missing file, for example) is now reported in the log and skipped; the run used to fail.
 - README: the introduction describes both views (oblique and nadir) instead of only the offset look, and *How it works* no longer assumes an oblique view. New Gallery section showing every style, a nadir view and all nine color ramps, each with shaded faces and a paper texture; the before/after pair is re-rendered (the after image is now Paper layers with Viridis, shading and paper). The sample DEM is now correctly credited as the Copernicus GLO-30 DEM (it was labelled USGS 3DEP).
 
 ## 3.3.0 — 2026-09-30

@@ -94,7 +94,7 @@ from qgis.core import (
 )
 import processing
 
-VERSION = "3.3.0"
+VERSION = "3.3.1"
 
 # Custom ramps as (position, color) stops, drawn with create_ramp() so they
 # don't depend on the user's style library. Modelled on John Nelson's maps.
@@ -516,6 +516,71 @@ def _drawn_extent(bbox, max_lift, step, view_az):
             bbox.xMinimum() + d * ux, bbox.yMinimum() + d * uy,
             bbox.xMaximum() + d * ux, bbox.yMaximum() + d * uy))
     return out
+
+
+def _burn_slabs(slabs, w, h, transform, wkt):
+    """Grid of the ELEV_MIN of the highest slab over each pixel (-1e30 where
+    there is none). slabs are (elev, geometry) pairs in ascending order."""
+    from osgeo import gdal, ogr, osr
+
+    srs = osr.SpatialReference()
+    srs.ImportFromWkt(wkt)
+    vds = ogr.GetDriverByName("Memory").CreateDataSource("")
+    vlyr = vds.CreateLayer("slabs", srs, ogr.wkbMultiPolygon)
+    vlyr.CreateField(ogr.FieldDefn("ELEV", ogr.OFTReal))
+    for lvl, g in slabs:  # ascending, so higher slabs burn last
+        f = ogr.Feature(vlyr.GetLayerDefn())
+        f.SetField("ELEV", float(lvl))
+        f.SetGeometry(ogr.CreateGeometryFromWkb(bytes(g.asWkb())))
+        vlyr.CreateFeature(f)
+    burn_ds = gdal.GetDriverByName("MEM").Create("", w, h, 1, gdal.GDT_Float64)
+    burn_ds.SetGeoTransform(transform)
+    burn_ds.SetProjection(wkt)
+    burn_ds.GetRasterBand(1).Fill(-1e30)
+    gdal.RasterizeLayer(burn_ds, [1], vlyr, options=["ATTRIBUTE=ELEV"])
+    return burn_ds.GetRasterBand(1).ReadAsArray()
+
+
+def _shifted(a, dr, dc):
+    """a moved dr rows down and dc columns right, filled with zeros."""
+    import numpy as np
+
+    out = np.zeros_like(a)
+    h, w = a.shape
+    if abs(dr) < h and abs(dc) < w:
+        out[max(0, dr):h - max(0, -dr), max(0, dc):w - max(0, -dc)] = \
+            a[max(0, -dr):h - max(0, dr), max(0, -dc):w - max(0, dc)]
+    return out
+
+
+def _stack_mask(slabs, base, exag, step, view_az, bbox, px, pad, wkt):
+    """Where the stack draws, on a grid of about px over bbox, as 0/255 bytes
+    (row 0 north): each slab at its lift, swept one step back toward the
+    viewer for its wall (none in a nadir view), then grown by pad map units
+    for the edge lines, highlights and shadows."""
+    import numpy as np
+
+    w = max(1, int(math.ceil(bbox.width() / px)))
+    h = max(1, int(math.ceil(bbox.height() / px)))
+    pxx, pxy = bbox.width() / w, bbox.height() / h
+    burn = _burn_slabs(slabs, w, h, (bbox.xMinimum(), pxx, 0, bbox.yMaximum(), 0, -pxy), wkt)
+    ux, uy = _lift_vector(view_az)
+    mask = np.zeros((h, w), dtype=bool)
+    # Nested slabs: in a nadir view the lowest one already covers the rest.
+    for lvl, _ in (slabs if exag > 0 else slabs[:1]):
+        ground = burn >= lvl - 1e-6
+        lift = (lvl - base) * exag
+        n = int(math.ceil(step / min(pxx, pxy))) if exag > 0 else 0
+        lifts = [lift - step * (1 - j / n) for j in range(n + 1)] if n else [lift]
+        for dr, dc in {(int(round(-d * uy / pxy)), int(round(d * ux / pxx))) for d in lifts}:
+            mask |= _shifted(ground, dr, dc)
+    r = max(1, int(math.ceil(pad / min(pxx, pxy))))
+    grown = mask.copy()
+    for dr in range(-r, r + 1):
+        for dc in range(-r, r + 1):
+            if dr * dr + dc * dc <= r * r:
+                grown |= _shifted(mask, dr, dc)
+    return grown.astype("uint8") * 255
 
 
 def _shadow_offset(style, light_az):
@@ -1011,17 +1076,23 @@ def _write_arcgis_vector(out_dir, stem, features, crs):
 
 def _write_gray(src, out):
     """Paper texture as one luminosity band, stretched to 0-255: what QGIS
-    shows with grayscale mode and a min/max stretch."""
+    shows with grayscale mode and a min/max stretch. Where its alpha band
+    hides it, it fades to white, which is neutral under Multiply."""
     import numpy as np
     from osgeo import gdal
 
     ds = gdal.Open(src)
-    bands = [ds.GetRasterBand(i + 1).ReadAsArray().astype("float32")
-             for i in range(min(3, ds.RasterCount))]
-    gray = (0.21 * bands[0] + 0.72 * bands[1] + 0.07 * bands[2]
-            if len(bands) == 3 else bands[0])
+    bands = [ds.GetRasterBand(i + 1) for i in range(ds.RasterCount)]
+    is_alpha = [b.GetColorInterpretation() == gdal.GCI_AlphaBand for b in bands]
+    alpha = [b for b, x in zip(bands, is_alpha) if x]
+    color = [b.ReadAsArray().astype("float32") for b, x in zip(bands, is_alpha) if not x][:3]
+    gray = (0.21 * color[0] + 0.72 * color[1] + 0.07 * color[2]
+            if len(color) == 3 else color[0])
     lo, hi = float(gray.min()), float(gray.max())
     gray = (gray - lo) * (255.0 / (hi - lo)) if hi > lo else np.full_like(gray, 255.0)
+    if alpha:
+        a = alpha[0].ReadAsArray().astype("float32") / 255.0
+        gray = 255.0 - (255.0 - gray) * a
     out_ds = gdal.GetDriverByName("GTiff").Create(
         out, ds.RasterXSize, ds.RasterYSize, 1, gdal.GDT_Byte, options=["COMPRESS=DEFLATE"])
     out_ds.SetGeoTransform(ds.GetGeoTransform())
@@ -1745,11 +1816,20 @@ class StackedTerrain(QgsProcessingAlgorithm):
 
         # --- 7. Optional paper texture ---------------------------------------
         if paper_src:
-            paper_path = self._paper_texture(
-                paper_src, dest_id,
-                _drawn_extent(slabs[0][1].boundingBox(), (top - base) * exag,
-                              interval * exag, view_az),
-                target_crs, feedback)
+            paper_box = _drawn_extent(slabs[0][1].boundingBox(), (top - base) * exag,
+                                      interval * exag, view_az)
+            # Half a cell is fine enough: the edge is softened when the mask
+            # is resampled to the image. Grown by a cell for edges and shadows.
+            px = max(cell / 2.0, math.sqrt(paper_box.width() * paper_box.height() / 16e6))
+            try:
+                paper_path = self._paper_texture(
+                    paper_src, dest_id, paper_box,
+                    _stack_mask(slabs, base, exag, interval * exag, view_az, paper_box,
+                                px, cell, _crs_wkt(target_crs)),
+                    target_crs, feedback)
+            except Exception as e:  # noqa: BLE001  the slabs are still good
+                feedback.reportError(f"Could not add the paper texture: {e}", False)
+                paper_path = None
             if paper_path:
                 details = QgsProcessingContext.LayerDetails(
                     f"{stem} paper texture" if stem else "Paper texture",
@@ -1806,23 +1886,68 @@ class StackedTerrain(QgsProcessingAlgorithm):
 
     # -------------------------------------------------------------------------
 
-    def _paper_texture(self, src, dest_id, bbox, crs, feedback):
+    def _paper_texture(self, src, dest_id, bbox, mask, crs, feedback):
         """Stretch an image over bbox, the drawn extent of the slabs (lift and
-        walls included). Returns the GeoTIFF path, or None on failure."""
+        walls included), with mask (from _stack_mask) as its alpha band so the
+        paper only covers the stack, not the whole rectangle. The image's own
+        values are kept, so the contrast stretch is the same as without it.
+        Returns the GeoTIFF path, or None on failure."""
+        import numpy as np
         from osgeo import gdal
 
         out = _output_path(dest_id, "_paper.tif", "stacked_terrain_paper.tif")
 
         feedback.setProgressText("Georeferencing paper texture")
-        ds = gdal.Translate(
-            out, src,
-            outputBounds=[bbox.xMinimum(), bbox.yMaximum(),
-                          bbox.xMaximum(), bbox.yMinimum()],
-            outputSRS=crs.authid() or _crs_wkt(crs))
+        ds = gdal.Open(src)
         if ds is None:
-            feedback.reportError(f"Could not georeference paper texture: {src}", False)
+            feedback.reportError(f"Could not open paper texture: {src}", False)
             return None
-        ds = None  # close and flush
+        if ds.GetRasterBand(1).GetColorTable() is not None:
+            ds = gdal.Translate("", ds, format="VRT", rgbExpand="rgba")
+        bands = [ds.GetRasterBand(i + 1) for i in range(ds.RasterCount)]
+        is_alpha = [b.GetColorInterpretation() == gdal.GCI_AlphaBand for b in bands]
+        alpha = [b for b, x in zip(bands, is_alpha) if x]
+        color = [b for b, x in zip(bands, is_alpha) if not x][:3]
+        w, h = ds.RasterXSize, ds.RasterYSize
+
+        def as_bytes(band):  # 16-bit and float images scaled to 0-255
+            a = band.ReadAsArray()
+            if a.dtype == np.uint8:
+                return a
+            a = a.astype("float32")
+            lo, hi = float(a.min()), float(a.max())
+            return ((a - lo) * (255.0 / (hi - lo)) if hi > lo else a * 0 + 255).astype("uint8")
+
+        # The mask, resampled to the image with a soft edge.
+        mds = gdal.GetDriverByName("MEM").Create("", mask.shape[1], mask.shape[0], 1, gdal.GDT_Byte)
+        mds.GetRasterBand(1).WriteArray(mask)
+        # (Keep each dataset in a variable: a band outlives an unreferenced one.)
+        sized = gdal.Translate("", mds, format="MEM", width=w, height=h,
+                               resampleAlg="bilinear")
+        a = sized.GetRasterBand(1).ReadAsArray()
+        sized = mds = None
+        if alpha:
+            a = (a.astype("uint16") * as_bytes(alpha[0]) // 255).astype("uint8")
+
+        rgb = len(color) == 3
+        out_ds = gdal.GetDriverByName("GTiff").Create(
+            out, w, h, len(color) + 1, gdal.GDT_Byte,
+            options=["COMPRESS=DEFLATE", "ALPHA=YES",
+                     "PHOTOMETRIC=" + ("RGB" if rgb else "MINISBLACK")])
+        if out_ds is None:
+            feedback.reportError(f"Could not write paper texture: {out}", False)
+            return None
+        out_ds.SetGeoTransform((bbox.xMinimum(), bbox.width() / w, 0,
+                                bbox.yMaximum(), 0, -bbox.height() / h))
+        out_ds.SetProjection(_crs_wkt(crs))
+        interps = ([gdal.GCI_RedBand, gdal.GCI_GreenBand, gdal.GCI_BlueBand] if rgb
+                   else [gdal.GCI_GrayIndex] * len(color))
+        for i, (band, interp) in enumerate(zip(color, interps)):
+            out_ds.GetRasterBand(i + 1).WriteArray(as_bytes(band))
+            out_ds.GetRasterBand(i + 1).SetColorInterpretation(interp)
+        out_ds.GetRasterBand(len(color) + 1).WriteArray(a)
+        out_ds.GetRasterBand(len(color) + 1).SetColorInterpretation(gdal.GCI_AlphaBand)
+        out_ds = ds = None  # close and flush
         return out
 
     def _lifted_hillshade(self, dem_path, slabs, base, exag, view_az, light_az,
@@ -1836,7 +1961,7 @@ class StackedTerrain(QgsProcessingAlgorithm):
         first so the shading stays broad and soft. Returns the GeoTIFF path.
         """
         import numpy as np
-        from osgeo import gdal, ogr, osr
+        from osgeo import gdal
 
         top = slabs[-1][0]
         ground = slabs[0][1].boundingBox()  # the lowest slab covers every other
@@ -1867,23 +1992,7 @@ class StackedTerrain(QgsProcessingAlgorithm):
             return None
 
         # Burn each ground pixel with the ELEV_MIN of the highest slab over it.
-        srs = osr.SpatialReference()
-        srs.ImportFromWkt(wkt)
-        vds = ogr.GetDriverByName("Memory").CreateDataSource("")
-        vlyr = vds.CreateLayer("slabs", srs, ogr.wkbMultiPolygon)
-        vlyr.CreateField(ogr.FieldDefn("ELEV", ogr.OFTReal))
-        for lvl, g in slabs:  # ascending, so higher slabs burn last
-            f = ogr.Feature(vlyr.GetLayerDefn())
-            f.SetField("ELEV", float(lvl))
-            f.SetGeometry(ogr.CreateGeometryFromWkb(bytes(g.asWkb())))
-            vlyr.CreateFeature(f)
-        burn_ds = gdal.GetDriverByName("MEM").Create("", w, h, 1, gdal.GDT_Float64)
-        burn_ds.SetGeoTransform((xmin, px, 0, ytop, 0, -px))
-        burn_ds.SetProjection(wkt)
-        burn_ds.GetRasterBand(1).Fill(-1e30)
-        gdal.RasterizeLayer(burn_ds, [1], vlyr, options=["ATTRIBUTE=ELEV"])
-        burn = burn_ds.GetRasterBand(1).ReadAsArray()
-        burn_ds = vds = None
+        burn = _burn_slabs(slabs, w, h, (xmin, px, 0, ytop, 0, -px), wkt)
 
         # Paint bottom-up, each slab moved by its lift: dc columns east and dr
         # rows south (row 0 is north, so a northward lift is a negative dr).

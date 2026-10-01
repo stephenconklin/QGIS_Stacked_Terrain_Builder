@@ -78,7 +78,7 @@ The dialog greys out settings that don't apply to the current choices: the view 
 | Light from azimuth | 315 | Compass direction of the light: highlights sit on the side facing it, shadows fall away from it, and the shaded faces are lit from it. 315 is the usual north-west. |
 | Shade slab faces | off | Adds a hillshade layer, blended with Multiply, that is shifted slab by slab to follow the lift, so slopes facing the light (*Light from azimuth*) stay bright and the rest fall into soft shade. Adds a few seconds to the run. |
 | Graded 3-D walls | off | Oblique only. Builds each wall from 8 offset copies that shade from dark under the slab's edge to lighter at the base, so walls read as solid sides instead of flat bands. Rendering is somewhat slower. |
-| Paper texture image | none | Optional PNG/JPG/TIFF. It is stretched over the output's bounding rectangle (padded for the lift and the lowest wall; with an AOI it still covers the full rectangle), set to grayscale, contrast-stretched, cubic-resampled and blended with Multiply. |
+| Paper texture image | none | Optional PNG/JPG/TIFF. It is stretched over the output's bounding rectangle (padded for the lift and the lowest wall) but only shows where the stack is drawn, so with an AOI it follows the AOI's outline (and the walls in an oblique view) instead of covering the whole rectangle. It is set to grayscale, contrast-stretched, cubic-resampled and blended with Multiply. |
 | Paper texture opacity | 0.2 | Strength of the paper grain. |
 | Saturation change, % | 0 | Negative values mute the colors for a printed-paper feel; −20 to −30 works well. −100 is grayscale. |
 | Also export for ArcGIS Pro | off | Writes a copy of the map for ArcGIS Pro in an `ArcGIS` folder next to the output. Needs a file output. See *Opening the map in ArcGIS Pro*. |
@@ -113,7 +113,7 @@ st.apply_stack_style(iface.activeLayer(), {
 
 Use the values the run reported (`BASE_ELEV`, `TOP_ELEV`, `USED_INTERVAL`, `USED_EXAGGERATION`). Add `"stack_style": "paper"` or `"card"` for the other styles; `stack_wall`, `stack_edge` and `stack_shadow` default to that style's values when left out. The optional argument `saturation=-25` matches the dialog option.
 
-**Paper texture** is written only when a paper image is supplied. It is saved next to the output as `<name>_paper.tif` and loaded as "<name> paper texture", or to a temp file for temporary outputs, and is placed above the terrain in the Layers panel.
+**Paper texture** is written only when a paper image is supplied. It is saved next to the output as `<name>_paper.tif`, with an alpha band that hides it outside the stack, and loaded as "<name> paper texture", or to a temp file for temporary outputs, and is placed above the terrain in the Layers panel.
 
 **Shaded faces** is written only when *Shade slab faces* is on. It is saved next to the output as `<name>_shade.tif` and loaded as "<name> shading" (or to a temp file as "Shaded faces"), directly above the terrain in the Layers panel. It is built for the exaggeration of the run: if you later change `stack_exag`, the shading no longer lines up with the slabs, so rerun the tool with the new value as *Lift per unit of elevation* (Advanced).
 
@@ -145,7 +145,7 @@ With *Also export for ArcGIS Pro* on, the run also writes:
 Desktop/Hermosa/ArcGIS/
   Hermosa.shp           slabs with the lift and walls built in (+ .dbf, .shx, .prj, .cpg)
   Hermosa_shade.tif     shaded faces (if chosen)
-  Hermosa_paper.tif     paper texture as grayscale (if chosen)
+  Hermosa_paper.tif     paper texture as grayscale, white outside the stack (if chosen)
   Hermosa.lyrx          the whole stack as one layer file
   Hermosa_slabs.lyrx    the slabs' symbology alone
 ```
