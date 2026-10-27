@@ -94,7 +94,7 @@ from qgis.core import (
 )
 import processing
 
-VERSION = "4.0.0"
+VERSION = "4.0.1"
 
 # Custom ramps as (position, color) stops, drawn with create_ramp() so they
 # don't depend on the user's style library. Modelled on John Nelson's maps.
@@ -224,8 +224,10 @@ def _advanced(param):
         flag = _try(lambda: Qgis.ProcessingParameterFlag.Advanced,
                     lambda: QgsProcessingParameterDefinition.FlagAdvanced)
         param.setFlags(param.flags() | flag)
-    except Exception:
-        pass  # purely cosmetic; never fail over it
+    except Exception as e:  # noqa: BLE001  purely cosmetic; never fail over it
+        QgsMessageLog.logMessage(f"Could not mark {param.name()} as advanced: {e}",
+                                 "Stacked terrain", _try(lambda: Qgis.MessageLevel.Warning,
+                                                         lambda: Qgis.Warning))
     return param
 
 
@@ -322,8 +324,10 @@ class _LinkedWidgets:
             def link():
                 try:
                     _link_widgets(dialog.mainWidget())
-                except Exception:  # noqa: BLE001  cosmetic only
-                    pass
+                except Exception as e:  # noqa: BLE001  cosmetic only
+                    QgsMessageLog.logMessage(
+                        f"Could not grey out settings in the dialog: {e}", "Stacked terrain",
+                        _try(lambda: Qgis.MessageLevel.Warning, lambda: Qgis.Warning))
             QTimer.singleShot(0, link)
         return wrapper
 

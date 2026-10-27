@@ -1,5 +1,10 @@
 # Changelog
 
+## 4.0.1 — 2026-10-27
+
+- Moving a setting into the dialog's *Advanced* section, and greying out settings that don't apply, could fail without a trace. Neither step ever stops a run, but each now logs a warning under *Stacked terrain* in the message log when it fails. Flagged by the Bandit scan on plugins.qgis.org (B110, try/except/pass).
+- The plugin's About text ends with a pointer to the homepage for pictures and to the README for the parameter reference, since the About tab on plugins.qgis.org can't show images.
+
 ## 4.0.0 — 2026-10-27
 
 - **Now a QGIS plugin**, *Stacked Terrain Builder*, for the official plugin repository. It adds a Processing provider, *Stacked Terrain*, holding the same tool; install it from Plugins → Manage and Install Plugins. It runs on QGIS 3.34 and later, including QGIS 4 (`qgisMaximumVersion=4.99`), and is marked experimental for its first release.
