@@ -30,7 +30,7 @@ A single-file QGIS Processing tool that converts a DEM into nested elevation sla
 
 ## Environment
 
-The primary user runs QGIS 4.2 "Belém do Pará" on macOS with Qt 6.11, Python 3.12 and GDAL 3.13, and works in UTM 13N (EPSG:26913) around southwest Colorado. The script must also keep working on recent QGIS 3.x (Qt5), so compatibility is a hard requirement, not a nice-to-have.
+The primary user runs QGIS 4.2 "Belém do Pará" on macOS with Qt 6.11, Python 3.12 and GDAL 3.13, and works in UTM 13N (EPSG:26913) around southwest Colorado. The tool must also keep working on QGIS 3.44 (Qt5), its declared minimum, so compatibility is a hard requirement, not a nice-to-have.
 
 The code only runs inside QGIS. There is no way to execute it with a plain system Python, so "it compiles" (`python3 -m py_compile stacked_terrain.py`) is the only check available outside QGIS. Real testing means running it in QGIS.
 
@@ -76,9 +76,9 @@ Rules from plugins.qgis.org that the package must keep meeting: the zip holds on
 
 ## Compatibility rules
 
-QGIS 4 / Qt6 only accepts scoped enums (`Qgis.RenderUnit.MapUnits`, `Qt.PenStyle.NoPen`, `QPainter.CompositionMode.CompositionMode_Multiply`). Qt5 builds of QGIS 3 may only have the flat names (`QgsUnitTypes.RenderMapUnits`, `Qt.NoPen`). Never write a bare enum; always go through `_try()` with the new form first and the old form as fallback, following the existing helpers. The user already hit this once: `QPainter.CompositionMode_Multiply` raised AttributeError on QGIS 4.2.
+QGIS 4 / Qt6 only accepts scoped enums (`Qgis.RenderUnit.MapUnits`, `Qt.PenStyle.NoPen`, `QPainter.CompositionMode.CompositionMode_Multiply`). The user already hit this once: `QPainter.CompositionMode_Multiply` raised AttributeError on QGIS 4.2. Always write the scoped form, and never the old flat name (`QgsUnitTypes.RenderMapUnits`, `Qt.NoPen`, `QgsProcessing.TypeVectorPolygon`), not even as a fallback: the plugins.qgis.org Qt6 check, QGIS's `pyqt5_to_pyqt6.py --dry_run`, flags every flat name it finds and fails the upload. Until 4.0.1 every enum went through a `_try()` helper with a flat-name fallback, and that check flagged 12 of them.
 
-Field types follow the same rule: `_field()` tries `QMetaType.Type` (QGIS ≥ 3.38) before `QVariant`.
+Every scoped form the tool uses was checked on QGIS 3.44.10 / Qt 5.15 (2026-10-27), both that it exists and that the setters accept it. Several are newer than QGIS 3.34 (`Qgis.ProcessingParameterFlag` and `Qgis.ProcessingSourceType` came in 3.36, `QgsField` with `QMetaType` in 3.38), which is why `qgisMinimumVersion` is 3.44. Before using a scoped enum the tool hasn't used yet, check that 3.44 has it (the headless harness under *Testing*). Fields are built with `QMetaType.Type`, never `QVariant`.
 
 On QGIS 4.2 a valid CRS read from a layer (seen with a GeoPackage layer, EPSG:26912) can return an empty string from every `toWkt()` variant while `authid()` and `toProj()` still work. Always hand GDAL a CRS through `_crs_wkt()`, never `crs.toWkt()` directly.
 
@@ -143,6 +143,8 @@ Version 3.3.1 (paper mask) was checked on QGIS 4.2.3 on 2026-10-01 with the load
 
 Version 4.0.0 (plugin) was checked on 2026-10-27. On QGIS 4.2.3 the zip installed into the profile, the plugin loaded, unloaded and reloaded with exactly one `stackedterrain` provider, the algorithm showed the plugin icon and help URL, and a load-on-completion run (BrightAngelWatershed AOI, shading, ArcGIS export) styled, grouped and bundled as before. On QGIS 3.44.10 (Qt 5.15), the first QGIS 3 run ever, `qgis_process` enabled the plugin and completed a run with the ArcGIS export, and the PyQGIS harness (Cut card, shading, paper, saturation −20, a 3857 project) switched the project to 32612, loaded paper and shading as Multiply in order, wrote the `.qlr`, reopened the GeoPackage with 13 variables and rendered the same look as 4.2. Not yet exercised on QGIS 3: the dialog's greying (`_LinkedWidgets` with `AlgorithmDialog`). Not tried at all: QGIS 3.34–3.42, Windows and Linux.
 
+Version 4.0.2 (scoped enums only) was checked on 2026-10-27 on both QGIS 4.2.3 and 3.44.10: plugin and script loaded with 9 Advanced parameters and a polygon AOI filter, the dialog greyed the view azimuth in nadir (4.2.3), and an AOI run with Cut card, shading, paper, saturation and the ArcGIS export, from a 3857 project, switched to 32612, loaded paper and shading as Multiply in order, wrote the `.qlr` and reopened with 13 variables. The two versions rendered identically. A nadir `qgis_process` run with the ArcGIS export also completed on 3.44.
+
 Waiting for a Pro round (as of 2026-09-30, 3.3.0): `ProTest_Oblique225_GCLight` (oblique from 225°, Grand Canyon Light, shading, paper) and `ProTest_Nadir_Shaded` (nadir, shading) were written to the user's GEOG-400 Lab-6 `data/StackedTerrain/` folder; each has an `ArcGIS/` folder to open in Pro. Check wall direction, highlights toward the light and shadow softness (2.6.1).
 
 ## Ideas not yet built
@@ -151,4 +153,4 @@ A print-layout generator (page, cropped map frame, paper texture as a picture it
 
 ## Conventions
 
-Keep the tool a single file so users can still install it with Add Script to Toolbox; the plugin files only wrap it, and nothing in `stacked_terrain.py` may import from them. Keep user-visible strings wrapped in `self.tr()`. Put rarely changed parameters behind `_advanced()`. Log every auto-chosen value with `feedback.pushInfo` so users can see and reuse them. Update `VERSION`, `version` and `changelog` in `metadata.txt`, `CHANGELOG.md` and the relevant sections of `README.md` with every change. Every upload to plugins.qgis.org needs a new version. plugins.qgis.org runs Bandit on every upload, and it flags `except Exception: pass` (B110) and `except Exception: continue` (B112): a broad handler around a step that may fail must log the failure (`QgsMessageLog` with the `Stacked terrain` tag) rather than pass silently. Handlers for one specific exception that fall through to the next option, as in `_try()`, are not flagged.
+Keep the tool a single file so users can still install it with Add Script to Toolbox; the plugin files only wrap it, and nothing in `stacked_terrain.py` may import from them. Keep user-visible strings wrapped in `self.tr()`. Put rarely changed parameters behind `_advanced()`. Log every auto-chosen value with `feedback.pushInfo` so users can see and reuse them. Update `VERSION`, `version` and `changelog` in `metadata.txt`, `CHANGELOG.md` and the relevant sections of `README.md` with every change. Every upload to plugins.qgis.org needs a new version. plugins.qgis.org runs Bandit on every upload, and it flags `except Exception: pass` (B110) and `except Exception: continue` (B112): a broad handler around a step that may fail must log the failure (`QgsMessageLog` with the `Stacked terrain` tag) rather than pass silently. Handlers for one specific exception that fall through to the next option are not flagged.

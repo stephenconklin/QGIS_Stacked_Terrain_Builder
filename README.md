@@ -25,7 +25,7 @@ The oblique look is adapted from John Nelson's [Make this AI-inspired topo lands
 2. Search for **Stacked Terrain Builder** and click **Install Plugin**.
 3. The tool appears in the **Processing Toolbox** under **Stacked Terrain → Cartography → Stacked terrain (offset elevation slabs)**.
 
-The Plugin Manager also installs updates. To install a release zip by hand, use **Install from ZIP** in the same dialog. The plugin works in QGIS 3.34 and later, including QGIS 4.
+The Plugin Manager also installs updates. To install a release zip by hand, use **Install from ZIP** in the same dialog. The plugin works in QGIS 3.44 and later, including QGIS 4.
 
 ### As a Processing script
 
@@ -285,7 +285,7 @@ If the layer loads unstyled, check the log for an error from the styling step an
 
 ## Compatibility
 
-Developed on QGIS 4.2 (Qt 6.11, Python 3.12, GDAL 3.13) on macOS, and tested there on 4.2.2 and 4.2.3. Version 4.0.0 was also tested on QGIS 3.44.10 (Qt 5.15) on macOS, with the same results. The plugin declares QGIS 3.34 as its minimum, but versions from 3.34 to 3.42 have not been tried, and neither has Windows or Linux. The ArcGIS Pro export has been opened in ArcGIS Pro on Windows; its layer files use the ArcGIS Pro 2.6 format, but older Pro versions have not been tried.
+Developed on QGIS 4.2 (Qt 6.11, Python 3.12, GDAL 3.13) on macOS, and tested there on 4.2.2 and 4.2.3. Version 4.0.0 was also tested on QGIS 3.44.10 (Qt 5.15) on macOS, with the same results. QGIS 3.44 is the minimum: the tool uses the scoped enums that QGIS 4 requires, and some of them only arrived during 3.36 to 3.42. Windows and Linux have not been tried. The ArcGIS Pro export has been opened in ArcGIS Pro on Windows; its layer files use the ArcGIS Pro 2.6 format, but older Pro versions have not been tried.
 
 See `CHANGELOG.md` for version history and `CLAUDE.md` for developer notes.
 

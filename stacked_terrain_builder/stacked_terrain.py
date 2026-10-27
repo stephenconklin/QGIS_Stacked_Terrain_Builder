@@ -33,7 +33,7 @@ import math
 import os
 import re
 
-from qgis.PyQt.QtCore import QCoreApplication, QPointF, Qt, QTimer
+from qgis.PyQt.QtCore import QCoreApplication, QMetaType, QPointF, Qt, QTimer
 from qgis.PyQt.QtGui import QColor, QIcon, QPainter
 from qgis.core import (
     Qgis,
@@ -71,7 +71,6 @@ from qgis.core import (
     QgsProcessingOutputNumber,
     QgsProcessingOutputRasterLayer,
     QgsProcessingParameterBoolean,
-    QgsProcessingParameterDefinition,
     QgsProcessingParameterEnum,
     QgsProcessingParameterFeatureSink,
     QgsProcessingParameterFeatureSource,
@@ -82,19 +81,16 @@ from qgis.core import (
     QgsProject,
     QgsProperty,
     QgsRasterLayer,
-    QgsRasterMinMaxOrigin,
     QgsRectangle,
     QgsSimpleFillSymbolLayer,
     QgsSingleSymbolRenderer,
     QgsSymbolLayer,
     QgsSymbolLayerUtils,
-    QgsUnitTypes,
     QgsVectorLayer,
-    QgsWkbTypes,
 )
 import processing
 
-VERSION = "4.0.1"
+VERSION = "4.0.2"
 
 # Custom ramps as (position, color) stops, drawn with create_ramp() so they
 # don't depend on the user's style library. Modelled on John Nelson's maps.
@@ -165,69 +161,54 @@ _KEEP_ALIVE = []
 
 
 # =============================================================================
-# Compatibility helpers
-# QGIS 4 / Qt6 requires scoped enums (Qgis.RenderUnit.MapUnits); older QGIS 3
-# builds only have the flat names (QgsUnitTypes.RenderMapUnits). Every enum in
-# this file goes through _try() so the script runs on both.
+# Enum helpers
+# QGIS 4 / Qt6 only accepts scoped enums (Qgis.RenderUnit.MapUnits), and
+# QGIS 3.44 / Qt5 has them too, so every enum is written scoped. The
+# plugins.qgis.org Qt6 check rejects the old unscoped names, even as
+# fallbacks.
 # =============================================================================
-
-def _try(*getters):
-    """Return the first getter that doesn't raise AttributeError/TypeError."""
-    for getter in getters:
-        try:
-            return getter()
-        except (AttributeError, TypeError):
-            continue
-    raise AttributeError("No compatible QGIS/Qt API found")
 
 
 def _map_units():
-    return _try(lambda: Qgis.RenderUnit.MapUnits, lambda: QgsUnitTypes.RenderMapUnits)
+    return Qgis.RenderUnit.MapUnits
 
 
 def _mm():
-    return _try(lambda: Qgis.RenderUnit.Millimeters, lambda: QgsUnitTypes.RenderMillimeters)
+    return Qgis.RenderUnit.Millimeters
 
 
 def _prop(name):
-    return _try(lambda: getattr(QgsSymbolLayer.Property, name),
-                lambda: getattr(QgsSymbolLayer, "Property" + name))
+    return getattr(QgsSymbolLayer.Property, name)
 
 
 def _no_pen():
-    return _try(lambda: Qt.PenStyle.NoPen, lambda: Qt.NoPen)
+    return Qt.PenStyle.NoPen
 
 
 def _multiply():
-    return _try(lambda: QPainter.CompositionMode.CompositionMode_Multiply,
-                lambda: QPainter.CompositionMode_Multiply)
+    return QPainter.CompositionMode.CompositionMode_Multiply
 
 
 def _multipolygon():
-    return _try(lambda: Qgis.WkbType.MultiPolygon, lambda: QgsWkbTypes.MultiPolygon)
+    return Qgis.WkbType.MultiPolygon
+
+
+def _warning():
+    return Qgis.MessageLevel.Warning
 
 
 def _field(name, kind):
-    """kind: 'double' or 'int'. QGIS >= 3.38 wants QMetaType, older wants QVariant."""
-    try:
-        from qgis.PyQt.QtCore import QMetaType
-        t = QMetaType.Type.Double if kind == "double" else QMetaType.Type.Int
-        return QgsField(name, t)
-    except (AttributeError, TypeError):
-        from qgis.PyQt.QtCore import QVariant
-        return QgsField(name, QVariant.Double if kind == "double" else QVariant.Int)
+    """kind: 'double' or 'int'."""
+    return QgsField(name, QMetaType.Type.Double if kind == "double" else QMetaType.Type.Int)
 
 
 def _advanced(param):
     """Move a parameter into the dialog's collapsed 'Advanced' section."""
     try:
-        flag = _try(lambda: Qgis.ProcessingParameterFlag.Advanced,
-                    lambda: QgsProcessingParameterDefinition.FlagAdvanced)
-        param.setFlags(param.flags() | flag)
+        param.setFlags(param.flags() | Qgis.ProcessingParameterFlag.Advanced)
     except Exception as e:  # noqa: BLE001  purely cosmetic; never fail over it
         QgsMessageLog.logMessage(f"Could not mark {param.name()} as advanced: {e}",
-                                 "Stacked terrain", _try(lambda: Qgis.MessageLevel.Warning,
-                                                         lambda: Qgis.Warning))
+                                 "Stacked terrain", _warning())
     return param
 
 
@@ -327,7 +308,7 @@ class _LinkedWidgets:
                 except Exception as e:  # noqa: BLE001  cosmetic only
                     QgsMessageLog.logMessage(
                         f"Could not grey out settings in the dialog: {e}", "Stacked terrain",
-                        _try(lambda: Qgis.MessageLevel.Warning, lambda: Qgis.Warning))
+                        _warning())
             QTimer.singleShot(0, link)
         return wrapper
 
@@ -884,8 +865,7 @@ def _write_bundle(layers, name, path):
         QgsMessageLog.logMessage(f"Layer bundle written: {path}", "Stacked terrain")
     else:
         QgsMessageLog.logMessage(f"Could not write layer bundle {path}: {err}",
-                                 "Stacked terrain", _try(lambda: Qgis.MessageLevel.Warning,
-                                                         lambda: Qgis.Warning))
+                                 "Stacked terrain", _warning())
 
 
 def _output_path(dest_id, suffix, temp_name):
@@ -1305,18 +1285,13 @@ class PaperStyler(_RasterStyler):
 
     def steps(self, layer):
         def grayscale():
-            layer.hueSaturationFilter().setGrayscaleMode(_try(
-                lambda: QgsHueSaturationFilter.GrayscaleMode.GrayscaleLuminosity,
-                lambda: QgsHueSaturationFilter.GrayscaleLuminosity))
+            layer.hueSaturationFilter().setGrayscaleMode(
+                QgsHueSaturationFilter.GrayscaleMode.GrayscaleLuminosity)
 
         def contrast():
             layer.setContrastEnhancement(
-                _try(lambda: QgsContrastEnhancement.ContrastEnhancementAlgorithm
-                     .StretchToMinimumMaximum,
-                     lambda: QgsContrastEnhancement.StretchToMinimumMaximum),
-                _try(lambda: Qgis.RasterRangeLimit.MinimumMaximum,
-                     lambda: QgsRasterMinMaxOrigin.Limits.MinMax,
-                     lambda: QgsRasterMinMaxOrigin.MinMax))
+                QgsContrastEnhancement.ContrastEnhancementAlgorithm.StretchToMinimumMaximum,
+                Qgis.RasterRangeLimit.MinimumMaximum)
 
         return [("grayscale", grayscale), ("contrast stretch", contrast)] + super().steps(layer)
 
@@ -1412,7 +1387,7 @@ class StackedTerrain(QgsProcessingAlgorithm):
         self.addParameter(QgsProcessingParameterRasterLayer(self.DEM, self.tr("DEM")))
         self.addParameter(QgsProcessingParameterFeatureSource(
             self.AOI, self.tr("Clip to area of interest (optional)"),
-            [QgsProcessing.TypeVectorPolygon], optional=True))
+            [Qgis.ProcessingSourceType.VectorPolygon], optional=True))
 
         self.addParameter(QgsProcessingParameterEnum(
             self.STYLE, self.tr("Style"), options=[self.tr(label) for _, label in STYLES],
@@ -1491,7 +1466,7 @@ class StackedTerrain(QgsProcessingAlgorithm):
             Num.Double, 4, minValue=0)))
 
         self.addParameter(QgsProcessingParameterFeatureSink(
-            self.OUTPUT, self.tr("Stacked terrain"), QgsProcessing.TypeVectorPolygon))
+            self.OUTPUT, self.tr("Stacked terrain"), Qgis.ProcessingSourceType.VectorPolygon))
 
         self.addOutput(QgsProcessingOutputRasterLayer(self.PAPER_OUT, self.tr("Paper texture")))
         self.addOutput(QgsProcessingOutputRasterLayer(self.SHADE_OUT, self.tr("Shaded faces")))

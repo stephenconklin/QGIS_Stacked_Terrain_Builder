@@ -1,5 +1,10 @@
 # Changelog
 
+## 4.0.2 — 2026-10-27
+
+- **Every enum is now written in its scoped form** (`Qgis.RenderUnit.MapUnits`, `Qt.PenStyle.NoPen`, `Qgis.ProcessingSourceType.VectorPolygon` and so on), and the old flat names are gone, fallbacks included. The plugins.qgis.org Qt6 check flagged 12 of them in 4.0.1, although each was only a fallback behind the scoped form. The `_try()` helper is gone with them, and `QgsField` is always built with `QMetaType`.
+- **The minimum QGIS version is now 3.44.** It has every scoped enum the tool uses, with Qt 5.15; some of them arrived in 3.36 to 3.42, so earlier versions would fail. 3.44 is also the version the tool is tested on.
+
 ## 4.0.1 — 2026-10-27
 
 - Moving a setting into the dialog's *Advanced* section, and greying out settings that don't apply, could fail without a trace. Neither step ever stops a run, but each now logs a warning under *Stacked terrain* in the message log when it fails. Flagged by the Bandit scan on plugins.qgis.org (B110, try/except/pass).
@@ -7,7 +12,7 @@
 
 ## 4.0.0 — 2026-10-27
 
-- **Now a QGIS plugin**, *Stacked Terrain Builder*, for the official plugin repository. It adds a Processing provider, *Stacked Terrain*, holding the same tool; install it from Plugins → Manage and Install Plugins. It runs on QGIS 3.34 and later, including QGIS 4 (`qgisMaximumVersion=4.99`), and is marked experimental for its first release.
+- **Now a QGIS plugin**, *Stacked Terrain Builder*, for the official plugin repository. It adds a Processing provider, *Stacked Terrain*, holding the same tool; install it from Plugins → Manage and Install Plugins. It ran on QGIS 3.34 and later, including QGIS 4 (3.44 and later since 4.0.2) (`qgisMaximumVersion=4.99`), and is marked experimental for its first release.
 - **Breaking: the plugin's algorithm id is `stackedterrain:stackedterrain`.** Models and scripts saved with the script version use `script:stackedterrain`; replace the tool in them to use the plugin. The script still installs on its own with Add Script to Toolbox and keeps its old id.
 - The script moved to `stacked_terrain_builder/stacked_terrain.py`, inside the plugin folder, next to `__init__.py`, `plugin.py`, `provider.py`, `metadata.txt` and the icon. `dev/build_plugin.py` builds the zip to upload, and `dev/make_icon.py` draws the icon.
 - The tool shows the plugin's icon when installed as a plugin, and its Help button opens the README.
