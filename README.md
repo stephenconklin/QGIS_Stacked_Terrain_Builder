@@ -4,12 +4,12 @@
 
 *The Grand Canyon around Bright Angel Canyon and the North Rim, from the Copernicus GLO-30 DEM: Paper layers style, Grand Canyon Light ramp, shaded faces and a paper texture.*
 
-QGIS Stacked Terrain Builder is a QGIS Processing tool that turns any DEM into stacked terrain art. Each elevation level becomes a solid slab laid over the ones below it, so the landscape reads like layers of cut paper. The stack can be drawn two ways:
+QGIS Stacked Terrain Builder is a QGIS plugin that turns any DEM into stacked terrain art. Each elevation level becomes a solid slab laid over the ones below it, so the landscape reads like layers of cut paper. The stack can be drawn two ways:
 
 - **Oblique** (the default) is the "offset stacked" look: each slab is lifted away from the viewer in proportion to its height, with a darker wall showing beneath it.
 - **Nadir** looks straight down: every slab stays on its true ground position, so the map can still be read, measured or overlaid with other data, and the depth comes from shadows and lit edges.
 
-You choose the direction of the view and of the light, a style and a color ramp, and most of the look can be adjusted after the run without rerunning.
+You choose the direction of the view and of the light, a style and a color ramp, and most of the look can be adjusted after the run without rerunning. The plugin adds a single tool to the Processing Toolbox, and installs from the QGIS Plugin Manager as *Stacked Terrain Builder* (see [Install](#install)).
 
 The oblique look is adapted from John Nelson's [Make this AI-inspired topo landscape please](https://adventuresinmapping.com/2023/12/19/make-this-ai-inspired-topo-landscape-please/) (ArcGIS Pro), which in turn draws on Tanaka and Pauliny illuminated contours; the nadir view is closest to those. This project re-implements the idea natively in QGIS.
 
