@@ -90,7 +90,7 @@ from qgis.core import (
 )
 import processing
 
-VERSION = "4.0.2"
+VERSION = "4.0.3"
 
 # Custom ramps as (position, color) stops, drawn with create_ramp() so they
 # don't depend on the user's style library. Modelled on John Nelson's maps.

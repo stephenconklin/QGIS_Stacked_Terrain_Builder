@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.0.3 — 2026-10-27
+
+- **No longer experimental**, so the plugin shows in the QGIS Plugin Manager without *Show also experimental plugins*. The dialog's greying of settings that don't apply now has a test on QGIS 3.44 too: all 16 checks of its rules passed, and the batch dialog opened. Windows and Linux are still untested; report problems on the [issue tracker](https://github.com/stephenconklin/QGIS_Stacked_Terrain_Builder/issues).
+
 ## 4.0.2 — 2026-10-27
 
 - **Every enum is now written in its scoped form** (`Qgis.RenderUnit.MapUnits`, `Qt.PenStyle.NoPen`, `Qgis.ProcessingSourceType.VectorPolygon` and so on), and the old flat names are gone, fallbacks included. The plugins.qgis.org Qt6 check flagged 12 of them in 4.0.1, although each was only a fallback behind the scoped form. The `_try()` helper is gone with them, and `QgsField` is always built with `QMetaType`.

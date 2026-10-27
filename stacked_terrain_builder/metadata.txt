@@ -3,7 +3,7 @@ name=Stacked Terrain Builder
 qgisMinimumVersion=3.44
 qgisMaximumVersion=4.99
 description=Turns any DEM into stacked "cut paper" terrain: nested elevation slabs, styled live in QGIS, with an optional ArcGIS Pro export.
-version=4.0.2
+version=4.0.3
 author=Stephen Conklin
 email=stephenconklin@gmail.com
 
@@ -26,13 +26,14 @@ repository=https://github.com/stephenconklin/QGIS_Stacked_Terrain_Builder
 homepage=https://conklingeospatial.com/projects/qgis-stacked-terrain-builder/
 
 hasProcessingProvider=yes
-changelog=4.0.2 Every enum is now written in its scoped (Qt6) form, with no Qt5 fallbacks, which passes the plugins.qgis.org Qt6 check. QGIS 3.44 has all of them, so it is now the minimum version.
+changelog=4.0.3 No longer experimental: tested on QGIS 3.44 and 4.2 on macOS, including the dialog. Windows and Linux are not yet tested; please report problems on the tracker.
+    4.0.2 Every enum is now written in its scoped (Qt6) form, with no Qt5 fallbacks, which passes the plugins.qgis.org Qt6 check. QGIS 3.44 has all of them, so it is now the minimum version.
     4.0.1 The two cosmetic steps that used to fail silently (moving settings into Advanced, greying out settings that don't apply) now log a warning when they fail. The About text points to the homepage for pictures.
     4.0.0 First release as a plugin. The tool is now in its own Stacked Terrain provider, with the id stackedterrain:stackedterrain; models saved with the script version (script:stackedterrain) need the tool picked again. The full history is in CHANGELOG.md in the repository.
 
 tags=dem,elevation,terrain,relief,contours,hillshade,cartography,processing,3d,arcgis
 category=Analysis
 icon=icon.png
-experimental=True
+experimental=False
 deprecated=False
 server=False
