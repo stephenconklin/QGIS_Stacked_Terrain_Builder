@@ -19,6 +19,8 @@ about=Turns any DEM into stacked terrain art. Each elevation level becomes a sol
     
     Uses only QGIS, GDAL, and NumPy, which ship with QGIS. Adapted from John Nelson's ArcGIS Pro technique "Make this AI-inspired topo landscape please", which draws on Tanaka and Pauliny illuminated contours.
 
+    Pictures of every style, view, and color ramp, and maps made with the tool, are on the plugin homepage (see Details). The full parameter reference is in the README in the code repository.
+
 tracker=https://github.com/stephenconklin/QGIS_Stacked_Terrain_Builder/issues
 repository=https://github.com/stephenconklin/QGIS_Stacked_Terrain_Builder
 homepage=https://conklingeospatial.com/projects/qgis-stacked-terrain-builder/
