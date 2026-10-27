@@ -19,13 +19,27 @@ The oblique look is adapted from John Nelson's [Make this AI-inspired topo lands
 
 ## Install
 
-The tool is a single Processing script, `stacked_terrain.py`, at the top of the `QGIS_Stacked_Terrain_Builder` repository. Download that file (or clone the repository), then:
+### As a plugin (recommended)
+
+1. In QGIS, open **Plugins → Manage and Install Plugins…**. While the plugin is marked experimental, tick **Show also experimental plugins** under *Settings*.
+2. Search for **Stacked Terrain Builder** and click **Install Plugin**.
+3. The tool appears in the **Processing Toolbox** under **Stacked Terrain → Cartography → Stacked terrain (offset elevation slabs)**.
+
+The Plugin Manager also installs updates. To install a release zip by hand, use **Install from ZIP** in the same dialog. The plugin works in QGIS 3.34 and later, including QGIS 4.
+
+### As a Processing script
+
+The tool is also a single Processing script, `stacked_terrain_builder/stacked_terrain.py` in the repository, which needs no plugin. Download that file (or clone the repository), then:
 
 1. In QGIS, open the **Processing Toolbox**.
 2. Click the Python icon at the top of the toolbox and choose **Add Script to Toolbox…**, then select `stacked_terrain.py`.
 3. The tool appears under **Scripts → Cartography → Stacked terrain (offset elevation slabs)**.
 
 To update an installed copy, right-click the tool, choose **Edit Script…**, paste the new version over it and save. The same dialog shows where your scripts folder is (it can also be set under Settings → Options → Processing → Scripts).
+
+### Algorithm ids and saved models
+
+Models and scripts call the tool by its id: `stackedterrain:stackedterrain` for the plugin and `script:stackedterrain` for the script. Models saved before version 4.0, when the tool was only a script, use the script id. To move one to the plugin, open it in the Model Designer, replace the tool and save. With both installed, the tool shows up twice in the toolbox, once under each provider; they are the same tool.
 
 ## Quick start
 
@@ -96,7 +110,13 @@ The dialog greys out settings that don't apply to the current choices: the view 
 
 The layers below are loaded together in a group named after the output (or "Stacked terrain" for a temporary output), in drawing order: paper texture, shading, slabs.
 
-**Stacked terrain** is a polygon layer with one feature per slab, named after the output file (or "Stacked terrain" for a temporary output). `LEVEL` is the slab index from 0 (lowest) upwards, and `ELEV_MIN` is the slab's floor elevation: the feature covers everything at or above that elevation. When saved to a file, a sidecar `.qml` with the same name is written next to it, and a `.gpkg` also gets the style embedded as its default. The style is written when the tool loads its output into the project (the normal dialog run); runs inside a model or through `processing.run` without loading produce unstyled data. Style those by loading a saved `.qml`, or from the Python console by loading the installed script and calling its `apply_stack_style()` (the scripts folder is not on the Python path, so load it by file path; adjust the path if you moved your scripts folder):
+**Stacked terrain** is a polygon layer with one feature per slab, named after the output file (or "Stacked terrain" for a temporary output). `LEVEL` is the slab index from 0 (lowest) upwards, and `ELEV_MIN` is the slab's floor elevation: the feature covers everything at or above that elevation. When saved to a file, a sidecar `.qml` with the same name is written next to it, and a `.gpkg` also gets the style embedded as its default. The style is written when the tool loads its output into the project (the normal dialog run); runs inside a model or through `processing.run` without loading produce unstyled data. Style those by loading a saved `.qml`, or from the Python console by loading the tool's module and calling its `apply_stack_style()`. With the plugin installed:
+
+```python
+from stacked_terrain_builder import stacked_terrain as st
+```
+
+With the script instead, load it by file path, since the scripts folder is not on the Python path (adjust the path if you moved your scripts folder):
 
 ```python
 import importlib.util, os
@@ -104,7 +124,11 @@ path = os.path.join(QgsApplication.qgisSettingsDirPath(), "processing", "scripts
 spec = importlib.util.spec_from_file_location("stacked_terrain", path)
 st = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(st)
+```
 
+Then:
+
+```python
 st.apply_stack_style(iface.activeLayer(), {
     "stack_base": 2900, "stack_top": 4100, "stack_interval": 50,
     "stack_exag": 0.657, "stack_ramp": "Magma", "stack_hl": 0.15,
@@ -226,7 +250,7 @@ Things to know:
 
 - **Metres only.** The elevations are compared with `ELEV_MIN` as they are, so the DEM must be in metres. A DEM in feet comes out almost entirely in the top (conifer) color.
 - **`stack_base` and `stack_top` have no effect** on these ramps. They still set the slab lift and apply to the other ramps if you switch back.
-- **Layers made before the ramp existed** (version 2.7.0 for *Grand Canyon*, 2.9.0 for *Grand Canyon Light*) can't be switched to it by editing `stack_ramp`. Their saved style only knows the ramps that existed when they were made, so the slabs lose their colors. Rerun the tool, or restyle the layer from the Python console, keeping its current settings (load the script as in the example under *Outputs*, then):
+- **Layers made before the ramp existed** (version 2.7.0 for *Grand Canyon*, 2.9.0 for *Grand Canyon Light*) can't be switched to it by editing `stack_ramp`. Their saved style only knows the ramps that existed when they were made, so the slabs lose their colors. Rerun the tool, or restyle the layer from the Python console, keeping its current settings (load the module as in the example under *Outputs*, then):
 
 ```python
 layer = iface.activeLayer()
@@ -261,6 +285,10 @@ If the layer loads unstyled, check the log for an error from the styling step an
 
 ## Compatibility
 
-Developed and tested on QGIS 4.2.2 (Qt 6.11, Python 3.12, GDAL 3.13) on macOS. All enums go through compatibility helpers so the script should also run on recent QGIS 3.x (Qt5) builds, but it has not been tested there. The ArcGIS Pro export has been opened in ArcGIS Pro on Windows; its layer files use the ArcGIS Pro 2.6 format, but older Pro versions have not been tried.
+Developed on QGIS 4.2 (Qt 6.11, Python 3.12, GDAL 3.13) on macOS, and tested there on 4.2.2 and 4.2.3. Version 4.0.0 was also tested on QGIS 3.44.10 (Qt 5.15) on macOS, with the same results. The plugin declares QGIS 3.34 as its minimum, but versions from 3.34 to 3.42 have not been tried, and neither has Windows or Linux. The ArcGIS Pro export has been opened in ArcGIS Pro on Windows; its layer files use the ArcGIS Pro 2.6 format, but older Pro versions have not been tried.
 
 See `CHANGELOG.md` for version history and `CLAUDE.md` for developer notes.
+
+## License
+
+GNU General Public License, version 2 or (at your option) any later version. See `LICENSE`.

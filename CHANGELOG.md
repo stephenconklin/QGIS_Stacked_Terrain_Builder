@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.0.0 — 2026-10-27
+
+- **Now a QGIS plugin**, *Stacked Terrain Builder*, for the official plugin repository. It adds a Processing provider, *Stacked Terrain*, holding the same tool; install it from Plugins → Manage and Install Plugins. It runs on QGIS 3.34 and later, including QGIS 4 (`qgisMaximumVersion=4.99`), and is marked experimental for its first release.
+- **Breaking: the plugin's algorithm id is `stackedterrain:stackedterrain`.** Models and scripts saved with the script version use `script:stackedterrain`; replace the tool in them to use the plugin. The script still installs on its own with Add Script to Toolbox and keeps its old id.
+- The script moved to `stacked_terrain_builder/stacked_terrain.py`, inside the plugin folder, next to `__init__.py`, `plugin.py`, `provider.py`, `metadata.txt` and the icon. `dev/build_plugin.py` builds the zip to upload, and `dev/make_icon.py` draws the icon.
+- The tool shows the plugin's icon when installed as a plugin, and its Help button opens the README.
+- Licensed under the GNU GPL, version 2 or later (`LICENSE`).
+- Tested on QGIS 3.44.10 (Qt 5.15) for the first time: a run with an AOI, Cut card, shading, paper and saturation styled, grouped and bundled the same as on QGIS 4.2.3.
+
 ## 3.3.1 — 2026-10-01
 
 - **Fixed: the paper texture covered the whole bounding rectangle**, so with an AOI a rectangular sheet of paper showed around the map. It now only shows where the stack is drawn: every slab at its lift, its walls, and a one-cell margin for edge lines and shadows. The paper raster carries this as an alpha band with a soft edge; the image's own values are unchanged, so the texture looks the same on the stack. The ArcGIS Pro copy fades to white outside the stack instead, which is neutral under Multiply.

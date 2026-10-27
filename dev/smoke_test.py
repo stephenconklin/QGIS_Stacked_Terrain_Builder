@@ -4,8 +4,8 @@ Smoke test for Stacked Terrain. Run inside QGIS:
     Python Console > Show Editor > open this file > Run
     or:  exec(open('/path/to/QGIS_Stacked_Terrain_Builder/dev/smoke_test.py').read())
 
-Requires the script to be installed in the Processing Toolbox
-(algorithm id: script:stackedterrain).
+Requires the plugin (algorithm id stackedterrain:stackedterrain) or the
+script (script:stackedterrain); set ALG to match.
 """
 import os
 import tempfile
@@ -14,6 +14,7 @@ import processing
 from qgis.core import QgsExpressionContextUtils, QgsProject
 
 # ---- edit these -------------------------------------------------------------
+ALG = "stackedterrain:stackedterrain"   # or "script:stackedterrain"
 DEM = "/path/to/your_dem.tif"
 AOI = None            # e.g. "/path/to/aoi.gpkg" or a loaded layer id
 PAPER = None          # e.g. "/path/to/paper_ao.png"
@@ -36,7 +37,7 @@ if PAPER:
 if ARCGIS:
     params["ARCGIS"] = True
 
-res = processing.runAndLoadResults("script:stackedterrain", params)
+res = processing.runAndLoadResults(ALG, params)
 
 print("Results:")
 for k, v in res.items():

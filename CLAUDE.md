@@ -1,18 +1,26 @@
 # CLAUDE.md — developer notes for QGIS Stacked Terrain Builder
 
-This file orients Claude Code (and any developer) to the project. Read it before changing `stacked_terrain.py`.
+This file orients Claude Code (and any developer) to the project. Read it before changing `stacked_terrain_builder/stacked_terrain.py`.
 
 ## What this is
 
-The project and its GitHub repository are called QGIS Stacked Terrain Builder (`QGIS_Stacked_Terrain_Builder`; renamed from `QGIS_Offset_Stacked_Terrain_Slabs` on 2026-09-30). The tool's name in QGIS, "Stacked terrain (offset elevation slabs)", and its id `script:stackedterrain` are deliberately unchanged: the id is what saved models refer to.
+The project and its GitHub repository are called QGIS Stacked Terrain Builder (`QGIS_Stacked_Terrain_Builder`; renamed from `QGIS_Offset_Stacked_Terrain_Slabs` on 2026-09-30). The tool's name in QGIS, "Stacked terrain (offset elevation slabs)", and its name `stackedterrain` are deliberately unchanged: the id built from it is what saved models refer to.
 
-A single-file QGIS Processing script that converts a DEM into nested elevation slabs and styles them as offset "stacked paper" terrain, after John Nelson's ArcGIS Pro technique. User-facing documentation is in `README.md`; version history is in `CHANGELOG.md`.
+Since 4.0.0 it is a QGIS plugin, *Stacked Terrain Builder* (folder `stacked_terrain_builder`), whose Processing provider `stackedterrain` holds the tool as `stackedterrain:stackedterrain`. The same file still installs on its own as a Processing script, as `script:stackedterrain`, the id of every version before 4.0. See *Plugin* below.
+
+A single-file QGIS Processing tool that converts a DEM into nested elevation slabs and styles them as offset "stacked paper" terrain, after John Nelson's ArcGIS Pro technique. User-facing documentation is in `README.md`; version history is in `CHANGELOG.md`.
 
 ## Files
 
 | Path | Purpose |
 |---|---|
-| `stacked_terrain.py` | The whole tool: algorithm, symbology, post-processors, compatibility helpers. |
+| `stacked_terrain_builder/stacked_terrain.py` | The whole tool: algorithm, symbology, post-processors, compatibility helpers. Also installable alone as a Processing script. |
+| `stacked_terrain_builder/__init__.py`, `plugin.py`, `provider.py` | The plugin wrapper: `classFactory()`, a plugin class that only registers the provider, and the provider with its one algorithm. |
+| `stacked_terrain_builder/metadata.txt` | Plugin metadata for the Plugin Manager and plugins.qgis.org. Its `version` must match `VERSION` in the script. |
+| `stacked_terrain_builder/icon.png` | Plugin, provider and algorithm icon, 256×256, drawn by `dev/make_icon.py`. |
+| `LICENSE` | GPL-2.0 text; the project is GPL-2.0-or-later. The build copies it into the zip, where the repository's validator requires a file named exactly `LICENSE`. |
+| `dev/build_plugin.py` | Builds `dist/stacked_terrain_builder-<version>.zip` for upload (`dist/` is ignored by git). Refuses to build if the two versions differ. |
+| `dev/make_icon.py` | Draws the icon; run from the QGIS Python console. |
 | `dev/smoke_test.py` | Runs the tool end to end from the QGIS Python console and prints what it produced. |
 | `dev/ARCGIS_PRO_PLAN.md` | Plan and status for a native ArcGIS Pro toolbox (`arcgis/StackedTerrain.pyt`), built in iterations tested in Pro on Windows. Read it before working on the Pro tool. |
 | `README.md` | User docs: install, parameters, variables, how it works. |
@@ -33,6 +41,14 @@ The code only runs inside QGIS. There is no way to execute it with a plain syste
 Anything that styles or rearranges layers happens in the `QgsProcessingLayerPostProcessorInterface` subclasses, `TerrainStyler` and the two `_RasterStyler`s (`ShadeStyler`, `PaperStyler`, which share resampling, Multiply blend, opacity and style saving), which QGIS calls on the main thread after loading the outputs. Instances are appended to the module-level `_KEEP_ALIVE` list; without that, Python garbage-collects them before QGIS calls them and the styling silently never happens.
 
 `apply_stack_style()` builds the renderer and is deliberately independent of the algorithm, so it can be called on any layer with an `ELEV_MIN` field (useful for restyling from the console).
+
+## Plugin
+
+The plugin is a thin wrapper. `classFactory()` returns `StackedTerrainPlugin`, whose `initProcessing()` adds `StackedTerrainProvider` to the registry (guarded so it is added once) and whose `unload()` removes it; `initGui()` only calls `initProcessing()`, because `qgis_process` calls `initProcessing()` alone. There are no menus or toolbars: the tool is reached from the Processing Toolbox. `metadata.txt` sets `hasProcessingProvider=yes`. Its `homepage` is the project's page on the user's portfolio site (conklingeospatial.com), the visual introduction; the README is reached through `repository`. The plugins.qgis.org page shows `about` as plain text, so it is written as short paragraphs (indented continuation lines, with whitespace-only lines between them) and has no HTML or Markdown.
+
+Rules from plugins.qgis.org that the package must keep meeting: the zip holds one folder whose name is ASCII letters, digits, `_` or `-`; it contains `metadata.txt`, `__init__.py` and a file named exactly `LICENSE`; the required metadata fields are `name`, `qgisMinimumVersion`, `description`, `about`, `version`, `author`, `email` and `repository`; and each upload has a new version. QGIS 4 loads a plugin only if `qgisMaximumVersion` covers 4.x (it is 4.99); the old `supportsQt6` flag has been removed from QGIS and does nothing. Upload is done by the user, with their OSGeo ID, and a new plugin waits for approval by QGIS staff.
+
+`experimental=True` for the first release, until the dialog has been used on QGIS 3 and the plugin on Windows. Clear it when that is done.
 
 ## Contracts — do not break without updating everything that depends on them
 
@@ -78,9 +94,14 @@ Greying out settings that don't apply: Processing has no API for it, so the View
 
 When testing dialogs from the console, create them with `processing.createAlgorithmDialog()` or pass `alg.create()`: a dialog takes ownership of the algorithm it is given, so handing it the registry's instance and closing it deletes that instance and QGIS segfaults on the next `processing.run` (happened 2026-09-30).
 
-**Always refresh the tool in QGIS after every change to `stacked_terrain.py`**, without being asked: copy the repo file over the one in the QGIS scripts folder (below) and call `refreshAlgorithms()` on the Scripts provider, through the QGIS MCP server's `execute_code` when it is connected. Otherwise the user keeps running the old copy. The tool's id is `script:stackedterrain`; its help text starts with the version, which shows the refresh took.
+**Always refresh the tool in QGIS after every change to the plugin folder**, without being asked, through the QGIS MCP server's `execute_code` when it is connected. Otherwise the user keeps running the old copy. Both installed copies need it:
 
-After editing, re-import the script. QGIS runs its own copy from `~/Library/Application Support/QGIS/QGIS4/profiles/default/processing/scripts/stacked_terrain.py`, not the repo file, so either copy the file there and refresh the Scripts provider (`QgsApplication.processingRegistry().providerById("script").refreshAlgorithms()`) or use Processing Toolbox → right-click the tool → Edit Script…, paste, save; then run `dev/smoke_test.py` from the QGIS Python console after setting `DEM` at the top. It runs the tool with `processing.runAndLoadResults`, which triggers the post-processors exactly as the dialog does, and prints the reported values and the layer's variables.
+- *Plugin*: rebuild the zip, unzip it over `~/Library/Application Support/QGIS/QGIS4/profiles/default/python/plugins/stacked_terrain_builder/`, then `qgis.utils.reloadPlugin("stacked_terrain_builder")`. The id is `stackedterrain:stackedterrain`.
+- *Script*: copy `stacked_terrain.py` over the one in the QGIS scripts folder (below) and call `refreshAlgorithms()` on the Scripts provider. The id is `script:stackedterrain`.
+
+The help text of each starts with the version, which shows the refresh took.
+
+After editing, re-import the script. QGIS runs its own copy from `~/Library/Application Support/QGIS/QGIS4/profiles/default/processing/scripts/stacked_terrain.py`, not the repo file, so either copy the file there and refresh the Scripts provider (`QgsApplication.processingRegistry().providerById("script").refreshAlgorithms()`) or use Processing Toolbox → right-click the tool → Edit Script…, paste, save; then run `dev/smoke_test.py` from the QGIS Python console after setting `DEM` and `ALG` at the top. It runs the tool with `processing.runAndLoadResults`, which triggers the post-processors exactly as the dialog does, and prints the reported values and the layer's variables.
 
 Manual checklist for a release:
 
@@ -116,14 +137,18 @@ Version 3.1.0 (dialog and fixes) was checked on QGIS 4.2.2 on 2026-09-30: the gr
 
 Release checklist items 2, 4 and 7 were rerun on 3.3.0 (2026-09-30) in throwaway `QgsProject`s that mimic load-on-completion (pass OUTPUT as `QgsProcessingOutputLayerDefinition(path, project)`, then load each `layersToLoadOnCompletion()` entry and call its post-processor): a geographic DEM with a 3857 project switched to 32612 with the log message, with a 26912 project used 26912 and left it alone, and nadir left a 3857 project alone; a bundle folder copied elsewhere loaded from its `.qlr` with all three layers valid, in order, Multiply, opacities and 13 variables; editing `stack_exag`, `stack_view_az` and `stack_light_az` on that layer moved the lift, walls and shadow as expected, and `stack_exag` 0 switched the walls off.
 
+**QGIS 3.x without opening it.** QGIS 3.44.10 (Qt 5.15) is installed as `/Applications/QGIS.app`, so Qt5 can be tested headlessly. Unzip the build into a scratch config folder at `<cfg>/profiles/default/python/plugins/` and run with a clean environment (the user's shell carries an Anaconda PROJ and PDAL that break QGIS): `env -i HOME=$HOME PATH=/usr/bin:/bin QGIS_CUSTOM_CONFIG_PATH=<cfg> /Applications/QGIS.app/Contents/MacOS/qgis_process plugins enable stacked_terrain_builder`, then `qgis_process run stackedterrain:stackedterrain -- DEM=… OUTPUT=…`. `qgis_process` loads nothing, so it skips the styling. For that, run a PyQGIS harness with `/Applications/QGIS.app/Contents/MacOS/python` (the wrapper sets `PYTHONHOME`; `python3.12` alone and `-I` both fail to find the standard library) and `QT_QPA_PLATFORM=offscreen`: start `QgsApplication`, `Processing.initialize()`, import the plugin and call `classFactory(None).initProcessing()`, then use the load-on-completion harness below and `processEvents()` for a few seconds so `_finish()` runs.
+
 Version 3.3.1 (paper mask) was checked on QGIS 4.2.3 on 2026-10-01 with the load-on-completion harness and the BrightAngelWatershed AOI (EPSG:26912, DEM output 32612): Paper layers oblique with the ArcGIS export, Offset slabs from 225° with a single-band gray PNG, and nadir Cut card. In all three, image corners rendered pure white, about 38% of the paper was transparent, the RGB paper loaded as RGBA (alpha band 4) and the gray one as gray + alpha (band 2), and the ArcGIS copy was white over the same area. At full paper opacity the paper covered the walls to their edge with a soft one-cell fringe. The Pro copy has not been opened in Pro.
+
+Version 4.0.0 (plugin) was checked on 2026-10-27. On QGIS 4.2.3 the zip installed into the profile, the plugin loaded, unloaded and reloaded with exactly one `stackedterrain` provider, the algorithm showed the plugin icon and help URL, and a load-on-completion run (BrightAngelWatershed AOI, shading, ArcGIS export) styled, grouped and bundled as before. On QGIS 3.44.10 (Qt 5.15), the first QGIS 3 run ever, `qgis_process` enabled the plugin and completed a run with the ArcGIS export, and the PyQGIS harness (Cut card, shading, paper, saturation −20, a 3857 project) switched the project to 32612, loaded paper and shading as Multiply in order, wrote the `.qlr`, reopened the GeoPackage with 13 variables and rendered the same look as 4.2. Not yet exercised on QGIS 3: the dialog's greying (`_LinkedWidgets` with `AlgorithmDialog`). Not tried at all: QGIS 3.34–3.42, Windows and Linux.
 
 Waiting for a Pro round (as of 2026-09-30, 3.3.0): `ProTest_Oblique225_GCLight` (oblique from 225°, Grand Canyon Light, shading, paper) and `ProTest_Nadir_Shaded` (nadir, shading) were written to the user's GEOG-400 Lab-6 `data/StackedTerrain/` folder; each has an `ArcGIS/` folder to open in Pro. Check wall direction, highlights toward the light and shadow softness (2.6.1).
 
 ## Ideas not yet built
 
-A print-layout generator (page, cropped map frame, paper texture as a picture item sized to the page); a shorter legend for the Pro slab layer (label only the faces, as an elevation key); an option to export the individual slabs for laser cutting; and packaging the script as a proper QGIS plugin so it can be versioned and installed from a zip.
+A print-layout generator (page, cropped map frame, paper texture as a picture item sized to the page); a shorter legend for the Pro slab layer (label only the faces, as an elevation key); an option to export the individual slabs for laser cutting; and translations for the plugin (the strings already go through `self.tr()`, but there is no `i18n/` folder).
 
 ## Conventions
 
-Keep the tool a single file so users can install it with Add Script to Toolbox. Keep user-visible strings wrapped in `self.tr()`. Put rarely changed parameters behind `_advanced()`. Log every auto-chosen value with `feedback.pushInfo` so users can see and reuse them. Update `VERSION`, `CHANGELOG.md` and the relevant sections of `README.md` with every change.
+Keep the tool a single file so users can still install it with Add Script to Toolbox; the plugin files only wrap it, and nothing in `stacked_terrain.py` may import from them. Keep user-visible strings wrapped in `self.tr()`. Put rarely changed parameters behind `_advanced()`. Log every auto-chosen value with `feedback.pushInfo` so users can see and reuse them. Update `VERSION`, `version` and `changelog` in `metadata.txt`, `CHANGELOG.md` and the relevant sections of `README.md` with every change. Every upload to plugins.qgis.org needs a new version.

@@ -34,7 +34,7 @@ import os
 import re
 
 from qgis.PyQt.QtCore import QCoreApplication, QPointF, Qt, QTimer
-from qgis.PyQt.QtGui import QColor, QPainter
+from qgis.PyQt.QtGui import QColor, QIcon, QPainter
 from qgis.core import (
     Qgis,
     QgsBilinearRasterResampler,
@@ -94,7 +94,7 @@ from qgis.core import (
 )
 import processing
 
-VERSION = "3.3.1"
+VERSION = "4.0.0"
 
 # Custom ramps as (position, color) stops, drawn with create_ramp() so they
 # don't depend on the user's style library. Modelled on John Nelson's maps.
@@ -1368,6 +1368,15 @@ class StackedTerrain(QgsProcessingAlgorithm):
 
     def groupId(self):
         return "cartography"
+
+    def icon(self):
+        # icon.png sits next to the script in the plugin; an installed script
+        # has none and keeps the default icon.
+        path = os.path.join(os.path.dirname(__file__), "icon.png")
+        return QIcon(path) if os.path.exists(path) else super().icon()
+
+    def helpUrl(self):
+        return "https://github.com/stephenconklin/QGIS_Stacked_Terrain_Builder#readme"
 
     def shortHelpString(self):
         return self.tr(

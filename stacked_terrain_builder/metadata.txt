@@ -1,0 +1,34 @@
+[general]
+name=Stacked Terrain Builder
+qgisMinimumVersion=3.34
+qgisMaximumVersion=4.99
+description=Turns any DEM into stacked "cut paper" terrain: nested elevation slabs, styled live in QGIS, with an optional ArcGIS Pro export.
+version=4.0.0
+author=Stephen Conklin
+email=stephenconklin@gmail.com
+
+about=Turns any DEM into stacked terrain art. Each elevation level becomes a solid slab laid over the ones below it, so the landscape reads like layers of cut paper. The tool appears in the Processing Toolbox under Stacked Terrain.
+    
+    Two views: Oblique lifts each slab away from the viewer, so its walls show. Nadir keeps every slab on its true ground position, with depth from shadows and lit edges, so the map can still be measured and overlaid with other data.
+    
+    Choose the view and light directions, one of three styles, and one of nine color ramps. Optionally clip to a polygon, and add shaded faces and a paper texture.
+    
+    The look is driven by layer variables, so the lift, view, light, walls, shadow, and ramp can be changed after a run without rerunning.
+    
+    File outputs get their own folder, with the style embedded in the GeoPackage and a .qlr layer file that adds the whole stack to another project. An optional ArcGIS Pro copy bakes the lift and walls into geometry and writes .lyrx files.
+    
+    Uses only QGIS, GDAL, and NumPy, which ship with QGIS. Adapted from John Nelson's ArcGIS Pro technique "Make this AI-inspired topo landscape please", which draws on Tanaka and Pauliny illuminated contours.
+
+tracker=https://github.com/stephenconklin/QGIS_Stacked_Terrain_Builder/issues
+repository=https://github.com/stephenconklin/QGIS_Stacked_Terrain_Builder
+homepage=https://conklingeospatial.com/projects/qgis-stacked-terrain-builder/
+
+hasProcessingProvider=yes
+changelog=4.0.0 First release as a plugin. The tool is now in its own Stacked Terrain provider, with the id stackedterrain:stackedterrain; models saved with the script version (script:stackedterrain) need the tool picked again. The full history is in CHANGELOG.md in the repository.
+
+tags=dem,elevation,terrain,relief,contours,hillshade,cartography,processing,3d,arcgis
+category=Analysis
+icon=icon.png
+experimental=True
+deprecated=False
+server=False
